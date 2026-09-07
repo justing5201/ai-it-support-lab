@@ -73,7 +73,7 @@ It displays:
 
 The retrieval view also exposes which SOP sections were matched and their similarity scores.
 
-![RAG retrieval details](docs/images/rag-retrieval-details.png)
+![RAG retrieval details](docs/images/retrieval-details.png)
 
 ## Microsoft Graph Integration
 
@@ -81,7 +81,7 @@ Outlook access is handled through Microsoft Graph and MSAL using delegated permi
 
 The lab currently uses read-only mailbox access so the application can retrieve messages from the signed-in test mailbox without broader write/send permissions.
 
-![Microsoft Graph permissions](docs/images/graph-permissions.png)
+![Microsoft Graph permissions](docs/images/entra-API-permissions.png)
 
 ## Knowledge Base
 
