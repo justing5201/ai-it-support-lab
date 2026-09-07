@@ -1,24 +1,23 @@
 # AI IT Support Assistant
 
-A local AI-assisted Tier 1 IT support project that reads support emails, retrieves relevant troubleshooting procedures, analyzes tickets with a local LLM, and presents the results in a Streamlit dashboard.
+A local AI-assisted Tier 1 IT support lab that reads support emails, retrieves relevant IT procedures, analyzes tickets with a local LLM, and presents the results in a Streamlit dashboard.
 
-I built this project to explore how AI could fit into a realistic IT support workflow without allowing the model to freely invent troubleshooting procedures. The current design uses a small knowledge base of IT support SOPs as its source of truth and routes unsupported or sensitive cases for human review.
+I built this project to explore how AI could support a real help desk workflow without relying on the model to invent company-specific troubleshooting steps.
 
 ## What It Does
 
-The application can:
+The system can:
 
-- Retrieve support emails from Outlook using Microsoft Graph
-- Use mock email data for local development and testing
-- Convert incoming emails into support tickets
-- Search a local SOP knowledge base using semantic similarity
-- Determine whether the issue is covered by the available documentation
-- Load the full matched SOP for analysis
-- Generate structured Tier 1 troubleshooting guidance with a local LLM
+- Read support emails from Outlook through Microsoft Graph
+- Use mock inbox data for local testing
+- Convert incoming emails into structured tickets
+- Retrieve relevant SOPs using semantic similarity
+- Reject unsupported tickets when no SOP match is strong enough
+- Load the full matched SOP before LLM analysis
 - Separate user-safe troubleshooting from technician actions
-- Apply deterministic policy rules after AI analysis
-- Route unsupported or security-related tickets for human review
-- Display processed tickets and retrieval information in a Streamlit dashboard
+- Apply deterministic policy rules after the AI response
+- Route security-sensitive or unsupported tickets for human review
+- Display the full workflow in a Streamlit dashboard
 
 ## Current Workflow
 
@@ -26,184 +25,170 @@ The application can:
 Outlook / Mock Inbox
         |
         v
-   Ticket Creation
+Ticket Processing
         |
         v
 Semantic SOP Retrieval
         |
         v
- Retrieval Threshold
-    /          \
-No Match     Match
-   |            |
-Human Review    v
-          Load Full SOP
-                |
-                v
-          Local LLM Analysis
-                |
-                v
-          Policy Enforcement
-                |
-                v
-       Streamlit Dashboard
+Confidence Check
+   /            \
+No Match       Match
+   |              |
+Human Review      v
+             Load Full SOP
+                  |
+                  v
+            Local LLM Analysis
+                  |
+                  v
+            Policy Validation
+                  |
+                  v
+          Streamlit Dashboard
 ```
 
-Retrieval is performed against smaller SOP sections. The highest-scoring result is used to identify the most relevant procedure.
+The retriever searches smaller SOP sections first. If the strongest result clears the configured similarity threshold, the application identifies the source SOP and loads the entire procedure before analysis.
 
-If the similarity score is below the configured threshold, the system does not attempt to adapt an unrelated procedure. The ticket is marked for human review instead.
+This avoids a problem I ran into earlier where top-k retrieval could find the correct document but omit important sections such as technician troubleshooting or escalation criteria.
 
-When a valid match is found, the application loads the complete source SOP before sending the ticket and documentation to the LLM. This allows retrieval to stay focused while giving the model the full troubleshooting procedure when generating its analysis.
+## Dashboard
 
-## Example Dashboard
-
-The Streamlit interface provides a ticket queue and detailed analysis for each processed message.
+The Streamlit interface can process either mock tickets or messages from a test Outlook mailbox.
 
 It displays:
 
 - Sender and subject
 - Email source and received time
-- Priority
-- Issue category
+- Priority and category
 - Issue summary
-- Matched SOP
-- Retrieval similarity
-- User-safe troubleshooting steps
+- Matched SOP and similarity score
+- User-safe guidance
 - Technician actions
-- Routing decision
+- Human-review decision
 - Original email
-- Retrieval details for troubleshooting/debugging
+- Retrieval details for debugging
 
-![Outlook ticket dashboard](docs/images/streamlit-ticket-dashboard.png)
+![Streamlit ticket dashboard](docs/images/streamlit-ticket-dashboard.png)
 
-![Retrieval information](docs/images/retrieval-details.png)
+The retrieval view also exposes which SOP sections were matched and their similarity scores.
+
+![RAG retrieval details](docs/images/rag-retrieval-details.png)
+
+## Microsoft Graph Integration
+
+Outlook access is handled through Microsoft Graph and MSAL using delegated permissions.
+
+The lab currently uses read-only mailbox access so the application can retrieve messages from the signed-in test mailbox without broader write/send permissions.
+
+![Microsoft Graph permissions](docs/images/graph-permissions.png)
 
 ## Knowledge Base
 
-The current knowledge base contains procedures for:
+The current lab knowledge base contains procedures for:
 
 - VPN connection and authentication issues
 - Password resets and account lockouts
 - Windows printer issues
-- Suspicious or phishing emails
+- Suspected phishing emails
 - Windows workstation performance issues
 
-The SOPs include issue scope, information to collect, user-safe troubleshooting, technician actions, escalation conditions, and resolution criteria.
+The SOPs are stored as Markdown files and include sections such as:
 
-The knowledge base is intentionally limited. An unsupported issue should be identified as unsupported rather than forcing a match to the closest available document.
+- purpose / scope
+- information to collect
+- user-safe troubleshooting
+- technician actions
+- escalation criteria
+- resolution criteria
+
+The knowledge base is intentionally limited. If an issue is not covered well enough, the system should route it for human review rather than force an unrelated SOP match.
 
 ## RAG and Scope Detection
 
-SOPs are split into sections and converted into embeddings using Ollama.
+The system uses Ollama embeddings and cosine similarity to find relevant SOP sections.
 
-For an incoming ticket, the retriever:
-
-1. Creates an embedding for the ticket.
-2. Compares it with indexed SOP sections using cosine similarity.
-3. Ranks the most relevant sections.
-4. Checks the highest score against a minimum retrieval threshold.
-5. Identifies the source SOP when the threshold is met.
-6. Loads the complete SOP for ticket analysis.
-
-The current minimum retrieval score is:
+The current retrieval threshold is:
 
 ```python
 MIN_RETRIEVAL_SCORE = 0.45
 ```
 
-This was added after testing showed that unrelated issues could still retrieve superficially similar documentation.
+This was added after testing showed that semantic search will always return a “closest” result, even when the issue is not actually covered by the knowledge base.
 
-For example, issues involving webcams, Bluetooth headsets, monitors, USB devices, and other unsupported topics should be rejected rather than receiving troubleshooting instructions from an unrelated SOP.
-
-## Testing
-
-The project includes retrieval, scope-detection, security, and adversarial tests.
-
-The scope-detection test currently contains both supported and unsupported requests.
-
-Current test set:
+The current scope-detection test contains:
 
 ```text
-20 scope-detection cases
+20 cases total
 10 supported
 10 unsupported
 ```
 
-The latest run correctly classified all 20 test cases, including selecting the expected SOP for supported issues and rejecting the unsupported cases.
+The latest run correctly selected the expected SOP for supported cases and rejected the unsupported cases.
 
-This test set is small and purpose-built for the current knowledge base, so the result should not be interpreted as general IT support accuracy.
+That result is only for this small lab dataset and should not be interpreted as production-level accuracy.
 
-Run the retrieval tests with:
+Run the tests with:
 
 ```powershell
 python -m tests.test_retrieval
-```
-
-Run the scope-detection tests with:
-
-```powershell
 python -m tests.test_scope_detection
 ```
 
-## Outlook Integration
-
-The project can retrieve messages from a test Outlook mailbox through Microsoft Graph.
-
-Authentication uses MSAL and Microsoft's device authorization flow. The Outlook integration is kept separate from the ticket analysis pipeline so the same processing logic can also be tested with local mock messages.
-
-The Streamlit dashboard can switch between:
-
-- Mock Inbox
-- Outlook
-
-This lets the AI/RAG pipeline be developed without requiring a live mailbox for every test.
-
-![Entra API Permissions](docs/images/entra-API-permissions.png)
-
 ## Safety and Human Review
 
-The LLM is not treated as the final authority for routing.
+The LLM is not treated as the final authority.
 
-The project includes deterministic policy logic that runs after AI analysis. For example, security-related tickets can be forced into human review even when the model does not request escalation.
+A deterministic policy layer runs after AI analysis so application rules can override model decisions when needed.
+
+Examples include:
+
+- security-related tickets requiring human review
+- low-confidence SOP matches being rejected
+- privileged technician actions being kept separate from end-user guidance
 
 The analysis prompt also instructs the model to:
 
-- Use the supplied SOP as its source of truth
-- Avoid inventing company procedures
-- Keep privileged actions separate from user-safe steps
-- Never request passwords, MFA codes, or authentication secrets
-- Avoid assuming escalation criteria are satisfied without evidence
-- Send inadequately documented issues to human review
+- use the supplied SOP as its source of truth
+- avoid inventing undocumented procedures
+- avoid requesting passwords or MFA secrets
+- avoid assuming escalation conditions are true without evidence
+- send inadequately covered issues to human review
 
-This creates a basic separation between probabilistic AI analysis and application-enforced rules.
+## Why I Built It This Way
+
+The project started as a much simpler LLM ticket classifier.
+
+While building it, I ran into several problems that changed the design:
+
+- hard-coding every possible IT issue was not realistic
+- unrelated SOPs could still receive non-zero similarity scores
+- top-k chunk retrieval could omit important parts of the correct SOP
+- the LLM could make routing decisions I did not want to trust by itself
+- normal test cases could pass while unsupported inputs behaved badly
+
+Those problems led me to add:
+
+- RAG instead of issue-by-issue hard-coding
+- retrieval thresholds
+- explicit unsupported-ticket handling
+- section-based SOP indexing
+- full-SOP loading after retrieval
+- deterministic policy enforcement
+- separate scope-detection tests
+
+The goal is not to replace a technician. The goal is to automate the repetitive parts of Tier 1 triage while keeping uncertain or sensitive decisions under human control.
 
 ## Project Structure
 
 ```text
 ai-it-support-lab/
 |
-├── data/
-│   ├── mock_emails.json
-│   └── sample_tickets.json
-|
-├── knowledge_base/
-│   ├── password_reset.md
-│   ├── phishing.md
-│   ├── printer.md
-│   ├── vpn.md
-│   └── windows_performance.md
-|
-├── rag/
-│   ├── __init__.py
-│   ├── ingest_sops.py
-│   ├── knowledge_index.json
-│   └── retriever.py
-|
-├── tests/
-│   ├── adversarial_tests.py
-│   ├── security_tests.py
-│   ├── test_retrieval.py
-│   └── test_scope_detection.py
+├── data/                 # Mock inbox and sample ticket data
+├── docs/images/          # Project screenshots
+├── knowledge_base/       # IT SOPs
+├── rag/                  # SOP ingestion, embeddings, retrieval
+├── tests/                # Retrieval, scope, security, adversarial tests
 |
 ├── ai_analyzer.py
 ├── app.py
@@ -213,94 +198,49 @@ ai-it-support-lab/
 ├── outlook_reader.py
 ├── policy.py
 ├── process_inbox.py
-├── test_outlook.py
 ├── ticket_processor.py
-├── requirements.txt
-└── README.md
+└── requirements.txt
 ```
-
-`knowledge_index.json` is generated from the SOPs and can be excluded from version control if the index is rebuilt locally.
 
 ## Running the Project
 
-### 1. Create and activate a virtual environment
+Create and activate a virtual environment:
 
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 ```
 
-### 2. Install dependencies
+Install dependencies:
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-### 3. Make sure Ollama is running
+Make sure Ollama is running and the required local models are available.
 
-The project currently uses Ollama for local embeddings and LLM inference.
-
-### 4. Build the SOP index
+Build the SOP index:
 
 ```powershell
 python rag/ingest_sops.py
 ```
 
-### 5. Run the tests
+Run the tests:
 
 ```powershell
 python -m tests.test_retrieval
 python -m tests.test_scope_detection
 ```
 
-### 6. Start the dashboard
+Start the dashboard:
 
 ```powershell
 streamlit run dashboard.py
 ```
 
-Outlook mode additionally requires a Microsoft Entra application configured for the Microsoft Graph permissions used by the project.
+Outlook mode also requires a Microsoft Entra app registration configured for Microsoft Graph access.
 
-## Why I Built It
-
-I wanted this project to go beyond sending an IT ticket directly to an LLM and displaying whatever it returned.
-
-While building it, I ran into several problems that changed the design:
-
-- Unrelated SOPs could still receive non-zero similarity scores.
-- Giving the model only retrieved fragments could remove important troubleshooting context.
-- Giving the model escalation criteria did not mean those criteria were actually satisfied.
-- AI-generated routing alone was not enough for security-sensitive tickets.
-- A system can appear to work on normal examples while behaving poorly on unsupported inputs.
-
-Those issues led me to add retrieval thresholds, explicit unsupported-ticket handling, full-SOP loading after retrieval, deterministic policy enforcement, and separate scope-detection tests.
-
-The project is still a lab rather than a production help desk system, but it now represents a complete working pipeline from email ingestion through retrieval, AI analysis, policy enforcement, and technician-facing presentation.
-
-## Current Status
-
-Working:
-
-- Local SOP ingestion and embeddings
-- Semantic retrieval
-- Full-SOP loading after retrieval
-- Retrieval threshold and unsupported-ticket detection
-- Structured local LLM analysis
-- User/technician action separation
-- Policy-based human review
-- Mock inbox processing
-- Microsoft Graph Outlook retrieval
-- Streamlit ticket dashboard
-- Retrieval and scope-detection tests
-
-Still improving:
-
-- Dashboard presentation and retrieval-detail layout
-- Broader SOP coverage
-- Additional adversarial and edge-case testing
-- Outlook authentication/session handling
-- Error handling and logging
-- More realistic end-to-end ticket scenarios
+Do not commit `.env`, access tokens, device codes, or other secrets.
 
 ## Tech Stack
 
@@ -309,6 +249,26 @@ Still improving:
 - Llama 3
 - EmbeddingGemma
 - Microsoft Graph API
-- MSAL
+- Microsoft Entra ID / MSAL
 - Streamlit
-- JSON / Markdown
+- JSON
+- Markdown
+- Git / GitHub
+
+## Next Steps
+
+The core help desk workflow is working. The next phase is focused more on security and validation than adding more features.
+
+Planned next steps:
+
+- update the existing adversarial tests for the current RAG architecture
+- test prompt injection through support emails
+- test attempts to manipulate priority, category, or routing
+- test whether malicious ticket content can bypass human-review policy
+- test indirect prompt injection through retrieved SOP content
+- improve grounding and policy controls based on those results
+- expand the evaluation set with more ambiguous and edge-case tickets
+- add technician-reviewed response drafting after the security pass
+- make one final Streamlit UI cleanup for portfolio presentation
+
+The project is a learning lab, not a production help desk platform.
