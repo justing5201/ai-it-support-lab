@@ -13,7 +13,7 @@ st.set_page_config(
 
 st.title("AI IT Support Assistant")
 st.caption(
-    "AI-assisted Tier 1 ticket analysis using company support procedures"
+    "Fictional Alder Works training lab. All checks are suggestions, not completed actions."
 )
 
 
@@ -203,7 +203,7 @@ if results:
     )
 
     col2.metric(
-        "Tier 1 Ready",
+        "Suggested Checks",
         tier1_count
     )
 
@@ -246,7 +246,7 @@ if results:
         status_text = (
             "Human Review"
             if requires_review
-            else "Tier 1 Ready"
+            else "Suggested Checks"
         )
 
         title = (
@@ -359,7 +359,7 @@ if results:
                 "Primary Procedure"
             )
 
-            if retrieval_results:
+            if analysis["matched_procedures"] and retrieval_results:
                 primary = retrieval_results[
                     0
                 ]
@@ -385,6 +385,17 @@ if results:
                 st.warning(
                     "No sufficiently relevant SOP was found."
                 )
+
+            st.write("**Service:**", analysis["affected_service"])
+            st.write("**Scope:**", analysis["scope"])
+            st.write("**Business impact:**", analysis["business_impact"])
+            st.write("**Escalation owner:**", analysis["escalation_owner"])
+            st.write("**Retrieved sections:**", ", ".join(analysis["sop_sections"]) or "None")
+            st.subheader("Questions to ask")
+            for question in analysis["missing_information"]:
+                st.write(question)
+            st.subheader("Draft ticket notes")
+            st.code(analysis["ticket_notes"], language=None)
 
             # ---------------------------------------------
             # User guidance
@@ -442,7 +453,7 @@ if results:
                 )
             else:
                 st.success(
-                    "Tier 1 workflow can continue"
+                    "Suggested checks available; results are not verified"
                 )
 
             st.write(

@@ -29,6 +29,8 @@ def process_inbox():
             result = process_ticket(ticket)
             analysis = result["analysis"]
 
+            print("\nDRAFT TICKET NOTES")
+            print(analysis["ticket_notes"])
             print("\nAI ANALYSIS")
             print(f"Issue: {analysis['issue_summary']}")
             print(f"Category: {analysis['category']}")

@@ -2,6 +2,8 @@
 
 ## Purpose
 
+Fictional Alder Works training procedure; not an employer policy.
+
 Use this procedure when a user reports that a Windows workstation is unusually slow, applications take significantly longer than expected to open, the system frequently becomes unresponsive, or overall performance has noticeably degraded.
 
 Performance problems can have many causes. Avoid assuming hardware failure without diagnostic evidence.

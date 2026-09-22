@@ -5,13 +5,17 @@ from pathlib import Path
 import ollama
 
 
-INDEX_FILE = Path("rag/knowledge_index.json")
-KNOWLEDGE_BASE = Path("knowledge_base")
+ROOT = Path(__file__).resolve().parents[1]
+INDEX_FILE = ROOT / "rag/knowledge_index.json"
+KNOWLEDGE_BASE = ROOT / "knowledge_base"
 EMBEDDING_MODEL = "embeddinggemma"
 
 
 def load_full_sop(source):
-    filepath = KNOWLEDGE_BASE / source
+    filepath = (KNOWLEDGE_BASE / source).resolve()
+
+    if filepath.parent != KNOWLEDGE_BASE.resolve() or filepath.suffix != ".md":
+        raise ValueError("Invalid SOP path")
 
     if not filepath.exists():
         raise FileNotFoundError(
@@ -24,6 +28,8 @@ def load_full_sop(source):
 
 
 def cosine_similarity(vector_a, vector_b):
+    if not vector_a or len(vector_a) != len(vector_b) or not all(math.isfinite(x) for x in [*vector_a, *vector_b]):
+        raise ValueError("Invalid embedding dimensions or values")
     dot_product = sum(
         a * b
         for a, b in zip(vector_a, vector_b)
@@ -59,7 +65,7 @@ def retrieve_relevant_sops(
 ):
     index = load_index()
 
-    response = ollama.embed(
+    response = ollama.Client(timeout=60).embed(
         model=EMBEDDING_MODEL,
         input=query
     )

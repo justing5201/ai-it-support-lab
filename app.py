@@ -43,6 +43,12 @@ def main():
                 f"({retrieval['score']:.4f})"
             )
 
+        print("\nDRAFT TICKET NOTES")
+        print(analysis["ticket_notes"])
+        print("\nQUESTIONS TO ASK")
+        for question in analysis["missing_information"]:
+            print(f"- {question}")
+
         print("\nUSER-SAFE STEPS")
 
         if analysis["user_steps"]:
