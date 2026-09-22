@@ -2,6 +2,8 @@
 
 ## Purpose
 
+Fictional Alder Works training procedure; not an employer policy.
+
 Use this procedure for support requests involving an inability to connect to the corporate VPN, repeated authentication failures, unexpected disconnects, or other GlobalProtect connection errors.
 
 This procedure covers initial Tier 1 troubleshooting only. VPN access policies, authentication configuration, and authorization requirements are organization-specific and must not be assumed.

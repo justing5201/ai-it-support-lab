@@ -85,7 +85,7 @@ def build_index():
         chunks = chunk_text(document["content"])
 
         for chunk_number, chunk in enumerate(chunks):
-            response = ollama.embed(
+            response = ollama.Client(timeout=60).embed(
                 model=EMBEDDING_MODEL,
                 input=chunk
             )
