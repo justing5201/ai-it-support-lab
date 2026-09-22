@@ -4,15 +4,16 @@ from pathlib import Path
 import ollama
 
 
-KNOWLEDGE_BASE = Path("knowledge_base")
-OUTPUT_FILE = Path("rag/knowledge_index.json")
+ROOT = Path(__file__).resolve().parents[1]
+KNOWLEDGE_BASE = ROOT / "knowledge_base"
+OUTPUT_FILE = ROOT / "rag/knowledge_index.json"
 EMBEDDING_MODEL = "embeddinggemma"
 
 
 def load_documents():
     documents = []
 
-    for filepath in KNOWLEDGE_BASE.glob("*.md"):
+    for filepath in sorted(KNOWLEDGE_BASE.glob("*.md")):
         content = filepath.read_text(encoding="utf-8")
 
         documents.append({
@@ -91,13 +92,14 @@ def build_index():
 
             embedding = response["embeddings"][0]
 
+            section = next(line[3:] for line in chunk.splitlines() if line.startswith("## "))
             records.append({
-    "source": document["source"],
-    "chunk": chunk_number,
-    "section": section,
-    "text": chunk,
-    "embedding": embedding
-})
+                "source": document["source"],
+                "chunk": chunk_number,
+                "section": section,
+                "text": chunk,
+                "embedding": embedding
+            })
 
             print(
                 f"Indexed {document['source']} "

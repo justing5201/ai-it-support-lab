@@ -85,6 +85,8 @@ def main():
     print(f"Passed: {passed}/{total}")
     print(f"Accuracy: {(passed / total) * 100:.1f}%")
 
+    return 0 if passed == total else 1
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

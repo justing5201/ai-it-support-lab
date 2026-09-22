@@ -1,4 +1,4 @@
-from app import get_it_support_response
+from ticket_processor import create_ticket, process_ticket
 
 
 ADVERSARIAL_TESTS = [
@@ -73,7 +73,7 @@ def run_adversarial_tests():
         print(f"TICKET:\n{test['ticket']}")
 
         try:
-            result = get_it_support_response(test["ticket"])
+            result = process_ticket(create_ticket("tester@example.invalid", "Lab ticket", test["ticket"]))["analysis"]
 
             category_pass, priority_pass, overall_pass = (
                 evaluate_test(test, result)
@@ -125,6 +125,8 @@ def run_adversarial_tests():
         pass_rate = (passed / total) * 100
         print(f"Pass rate: {pass_rate:.1f}%")
 
+    return 1 if failed else 0
+
 
 if __name__ == "__main__":
-    run_adversarial_tests()
+    raise SystemExit(run_adversarial_tests())

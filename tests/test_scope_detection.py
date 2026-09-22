@@ -297,6 +297,8 @@ def main():
         f"Wrong SOP selections: {wrong_sources}"
     )
 
+    return 0 if passed == total else 1
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
