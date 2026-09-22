@@ -1,274 +1,131 @@
-# AI IT Support Assistant
+# Technician Support Lab
 
-A local AI-assisted Tier 1 IT support lab that reads support emails, retrieves relevant IT procedures, analyzes tickets with a local LLM, and presents the results in a Streamlit dashboard.
+A small Python decision-support lab for **fictional Alder Works**. Practice onsite IT intake, SOP lookup, suggested checks, escalation and ticket documentation. It has no knowledge of any employer's internal tools or policies.
 
-I built this project to explore how AI could support a real help desk workflow without relying on the model to invent company-specific troubleshooting steps.
+## What changed
 
-## What It Does
+- Repaired SOP indexing: section names are now extracted from each Markdown chunk.
+- Repaired obsolete test entry points and made evaluation failures return exit code 1.
+- Added label printing, new-hire intake, conference AV, mobile enrollment and unexpected sign-in procedures alongside the original five SOPs.
+- Added 12 fictional emails with one-user faults, a shipping outage, incomplete reports, security reports, injected instructions and unsupported equipment.
+- Added service, reported scope/impact, questions, SOP sections, escalation owner and draft notes to the existing Streamlit dashboard and CLI.
+- Added a vendor handoff report from separately curated fictional history.
 
-The system can:
+## Workflow
 
-- Read support emails from Outlook through Microsoft Graph
-- Use mock inbox data for local testing
-- Convert incoming emails into structured tickets
-- Retrieve relevant SOPs using semantic similarity
-- Reject unsupported tickets when no SOP match is strong enough
-- Load the full matched SOP before LLM analysis
-- Separate user-safe troubleshooting from technician actions
-- Apply deterministic policy rules after the AI response
-- Route security-sensitive or unsupported tickets for human review
-- Display the full workflow in a Streamlit dashboard
+1. Read the mock inbox or a dedicated Outlook test mailbox.
+2. Retrieve three SOP sections using EmbeddingGemma and cosine similarity.
+3. Reject a top score below `0.45`; otherwise load the full matched SOP.
+4. Ask local `llama3` to summarize the reported symptom and select numbered action/question IDs.
+5. Validate JSON fields, types and ID ranges. Display action text from the SOP, never generated commands.
+6. Apply conservative Python routing rules and produce notes explicitly marked as unverified suggestions.
 
-## Current Workflow
+The model can request review but cannot select category, priority or escalation owner. Service and default owner come from `workflow.py`. `policy.py` uses reported phrases to identify scope and conservative escalation triggers. Model, index, SOP or validation failures return a structured human-review result with no suggested actions.
 
-```text
-Outlook / Mock Inbox
-        |
-        v
-Ticket Processing
-        |
-        v
-Semantic SOP Retrieval
-        |
-        v
-Confidence Check
-   /            \
-No Match       Match
-   |              |
-Human Review      v
-             Load Full SOP
-                  |
-                  v
-            Local LLM Analysis
-                  |
-                  v
-            Policy Validation
-                  |
-                  v
-          Streamlit Dashboard
-```
+### Fictional examples
 
-The retriever searches smaller SOP sections first. If the strongest result clears the configured similarity threshold, the application identifies the source SOP and loads the entire procedure before analysis.
+| Report | Lab behavior |
+| --- | --- |
+| Only my label printer fails; others can print | One user, Low priority; collect any remaining information |
+| All workstations cannot print; shipping is blocked | Operational area, High priority, human review |
+| New employee laptop request | Endpoint/identity owner; verify approvals; imaging and account changes remain technician tasks |
+| Unclear issue with no affected scope | Ask scope/impact question; human review |
+| Suspicious email or unexpected MFA request | Security owner, High priority, suppress action suggestions |
+| Building access or camera report | Designated physical-security/facilities owner; suppress action suggestions |
+| Instruction-like email content | Human review; suppress action suggestions |
 
-This avoids a problem I ran into earlier where top-k retrieval could find the correct document but omit important sections such as technician troubleshooting or escalation criteria.
+These are training rules, not service-level commitments. A reported phrase is not independently verified evidence.
 
-## Dashboard
-
-The Streamlit interface can process either mock tickets or messages from a test Outlook mailbox.
-
-It displays:
-
-- Sender and subject
-- Email source and received time
-- Priority and category
-- Issue summary
-- Matched SOP and similarity score
-- User-safe guidance
-- Technician actions
-- Human-review decision
-- Original email
-- Retrieval details for debugging
-
-![Streamlit ticket dashboard](docs/images/streamlit-ticket-dashboard.png)
-
-The retrieval view also exposes which SOP sections were matched and their similarity scores.
-
-![RAG retrieval details](docs/images/retrieval-details.png)
-
-## Microsoft Graph Integration
-
-Outlook access is handled through Microsoft Graph and MSAL using delegated permissions.
-
-The lab currently uses read-only mailbox access so the application can retrieve messages from the signed-in test mailbox without broader write/send permissions.
-
-![Microsoft Graph permissions](docs/images/entra-API-permissions.png)
-
-## Knowledge Base
-
-The current lab knowledge base contains procedures for:
-
-- VPN connection and authentication issues
-- Password resets and account lockouts
-- Windows printer issues
-- Suspected phishing emails
-- Windows workstation performance issues
-
-The SOPs are stored as Markdown files and include sections such as:
-
-- purpose / scope
-- information to collect
-- user-safe troubleshooting
-- technician actions
-- escalation criteria
-- resolution criteria
-
-The knowledge base is intentionally limited. If an issue is not covered well enough, the system should route it for human review rather than force an unrelated SOP match.
-
-## RAG and Scope Detection
-
-The system uses Ollama embeddings and cosine similarity to find relevant SOP sections.
-
-The current retrieval threshold is:
-
-```python
-MIN_RETRIEVAL_SCORE = 0.45
-```
-
-This was added after testing showed that semantic search will always return a “closest” result, even when the issue is not actually covered by the knowledge base.
-
-The current scope-detection test contains:
-
-```text
-20 cases total
-10 supported
-10 unsupported
-```
-
-The latest run correctly selected the expected SOP for supported cases and rejected the unsupported cases.
-
-That result is only for this small lab dataset and should not be interpreted as production-level accuracy.
-
-Run the tests with:
-
-```powershell
-python -m tests.test_retrieval
-python -m tests.test_scope_detection
-```
-
-## Safety and Human Review
-
-The LLM is not treated as the final authority.
-
-A deterministic policy layer runs after AI analysis so application rules can override model decisions when needed.
-
-Examples include:
-
-- security-related tickets requiring human review
-- low-confidence SOP matches being rejected
-- privileged technician actions being kept separate from end-user guidance
-
-The analysis prompt also instructs the model to:
-
-- use the supplied SOP as its source of truth
-- avoid inventing undocumented procedures
-- avoid requesting passwords or MFA secrets
-- avoid assuming escalation conditions are true without evidence
-- send inadequately covered issues to human review
-
-## Why I Built It This Way
-
-The project started as a much simpler LLM ticket classifier.
-
-While building it, I ran into several problems that changed the design:
-
-- hard-coding every possible IT issue was not realistic
-- unrelated SOPs could still receive non-zero similarity scores
-- top-k chunk retrieval could omit important parts of the correct SOP
-- the LLM could make routing decisions I did not want to trust by itself
-- normal test cases could pass while unsupported inputs behaved badly
-
-Those problems led me to add:
-
-- RAG instead of issue-by-issue hard-coding
-- retrieval thresholds
-- explicit unsupported-ticket handling
-- section-based SOP indexing
-- full-SOP loading after retrieval
-- deterministic policy enforcement
-- separate scope-detection tests
-
-The goal is not to replace a technician. The goal is to automate the repetitive parts of Tier 1 triage while keeping uncertain or sensitive decisions under human control.
-
-## Project Structure
-
-```text
-ai-it-support-lab/
-|
-├── data/                 # Mock inbox and sample ticket data
-├── docs/images/          # Project screenshots
-├── knowledge_base/       # IT SOPs
-├── rag/                  # SOP ingestion, embeddings, retrieval
-├── tests/                # Retrieval, scope, security, adversarial tests
-|
-├── ai_analyzer.py
-├── app.py
-├── dashboard.py
-├── email_reader.py
-├── graph_auth.py
-├── outlook_reader.py
-├── policy.py
-├── process_inbox.py
-├── ticket_processor.py
-└── requirements.txt
-```
-
-## Running the Project
-
-Create and activate a virtual environment:
+## Setup (Windows PowerShell, Python 3.11+)
 
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 ```
 
-Install dependencies:
+Install/start Ollama on your computer, then:
 
 ```powershell
-pip install -r requirements.txt
+ollama pull embeddinggemma
+ollama pull llama3
+python -m rag.ingest_sops
+streamlit run dashboard.py
 ```
 
-Make sure Ollama is running and the required local models are available.
+The index is generated locally and excluded from Git. Rebuild it whenever SOPs or the embedding model change. Code paths work independently of the current working directory; run module commands from the repository root.
 
-Build the SOP index:
+Other entry points:
 
 ```powershell
-python rag/ingest_sops.py
+python app.py
+python process_inbox.py
+python history_report.py
 ```
 
-Run the tests:
+`history_report.py` needs only Python's standard library. It groups distinct synthetic records by service, asset and location, lists observed/reported evidence and records unknowns. It does not infer a common root cause or invent performed fixes. See [sample report](docs/sample-vendor-report.md).
+
+## Outlook integration
+
+`outlook_reader.py` contains a real Microsoft Graph reader using delegated `Mail.Read`, MSAL device login and a preference for plain-text bodies. For a dedicated test mailbox:
+
+1. Configure your own Entra public-client registration for the mailbox account type and device-code flow, with delegated `Mail.Read`.
+2. Copy `.env.example` to `.env`; enter your test app ID and tenant (`common` when appropriate for your registration).
+3. Send fictional support emails to that test mailbox.
+4. Run `python test_outlook.py` and follow the login instructions printed in the terminal.
+5. Run the dashboard, select Outlook and process the test messages. Login may be requested again; persistent token caching is not implemented.
+
+No messages are sent and no accounts, endpoints or devices are changed. Do not use company data or connections without the company's authorization. Do not commit `.env` or authentication artifacts.
+
+## Tests and observed results
+
+Run deterministic tests, with model responses and embeddings mocked:
+
+```powershell
+python -m unittest discover -s tests -p "test_pipeline.py" -v
+```
+
+Observed in this implementation environment: **24 tests passed**. Dependency installation from `requirements.txt`, Python compilation and `git diff --check` also succeeded. A Streamlit AppTest smoke check loaded the dashboard and processed five tickets with the missing-index fallback: zero UI exceptions, five human-review cases and five rejected-SOP warnings. [Full actual output](docs/test-output.txt). Coverage includes fresh index construction, section metadata, one-user versus operational outage, missing information, malicious email instructions, security routing, unsupported requests, missing files, unavailable backends, malformed model output, action ID validation, path containment and history deduplication.
+
+The fresh-index test uses fake embeddings: it proves index construction, not semantic retrieval quality. Unit tests do not establish real LLM accuracy or comprehensive prompt-injection resistance.
+
+### Checks still required on your machine
+
+After pulling both models and rebuilding the index:
 
 ```powershell
 python -m tests.test_retrieval
 python -m tests.test_scope_detection
-```
-
-Start the dashboard:
-
-```powershell
+python -m tests.security_tests
+python -m tests.adversarial_tests
+python test_outlook.py
 streamlit run dashboard.py
 ```
 
-Outlook mode also requires a Microsoft Entra app registration configured for Microsoft Graph access.
+- Retrieval checks must select appropriate SOPs and reject unsupported equipment. The expanded knowledge base may require threshold calibration.
+- Baseline checks cover the 12 mock emails; adversarial checks require actual model processing, not backend-error fallbacks.
+- Confirm the dashboard displays questions, accepted SOP sections, routing and unverified draft notes. Rejected retrieval candidates must not be labeled as accepted procedures.
+- Verify Outlook retrieves fictional messages and handles authentication errors visibly.
 
-Do not commit `.env`, access tokens, device codes, or other secrets.
+**Not verified here:** real Ollama embeddings/generation or authenticated Graph ingestion. No Ollama executable/server was available. Running the live baseline without an index returned **0/12, exit 1**, with safe review results. That is expected dependency failure, not a model-quality score. This replaces the previous README's small-dataset accuracy claim; no new live accuracy claim is made.
 
-## Tech Stack
+## Limitations
 
-- Python
-- Ollama
-- Llama 3
-- EmbeddingGemma
-- Microsoft Graph API
-- Microsoft Entra ID / MSAL
-- Streamlit
-- JSON
-- Markdown
-- Git / GitHub
+- Phrase rules can miss unfamiliar wording or escalate harmless quoted/negated text. Conservative review is expected.
+- Similarity is not a probability of correctness. The `0.45` threshold has not been recalibrated for the expanded SOP set.
+- Actions are limited to approved local SOP text, but the model can still select an irrelevant action or omit a needed question. SOP authoring/review remains essential.
+- The model-written symptom summary remains untrusted text. Human review is needed before using notes operationally.
+- The index does not track SOP versions. Rebuild after every SOP edit; stale indexing can degrade retrieval.
+- Dashboard results last only for the session. History reports use a separate synthetic fixture, not captured production incidents.
+- Outlook reads only the requested first batch. Production pagination, persistent authentication, ticket-system integration, SLA handling and multi-user operation are outside this lab.
+- Old screenshots under `docs/images` show the earlier implementation and are not verification of this version.
 
-## Next Steps
+## Files to learn first
 
-The core help desk workflow is working. The next phase is focused more on security and validation than adding more features.
-
-Planned next steps:
-
-- update the existing adversarial tests for the current RAG architecture
-- test prompt injection through support emails
-- test attempts to manipulate priority, category, or routing
-- test whether malicious ticket content can bypass human-review policy
-- test indirect prompt injection through retrieved SOP content
-- improve grounding and policy controls based on those results
-- expand the evaluation set with more ambiguous and edge-case tickets
-- add technician-reviewed response drafting after the security pass
-- make one final Streamlit UI cleanup for portfolio presentation
-
-The project is a learning lab, not a production help desk platform.
+- `ticket_processor.py`: brings together analysis, failure handling, routing and notes.
+- `ai_analyzer.py`: retrieves procedures and validates model selections.
+- `workflow.py`: fictional service owners and parsing of numbered SOP options.
+- `policy.py`: explicit routing rules you can inspect and test.
+- `knowledge_base/`: fictional procedures; user and technician actions are separated.
+- `tests/test_pipeline.py`: controlled examples proving application behavior.
+- `history_report.py`: recurring-issue evidence for a vendor handoff.

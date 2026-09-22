@@ -1,0 +1,62 @@
+[
+  {
+    "id": "LAB-002",
+    "synthetic": true,
+    "reported_at": "2026-09-11T09:00:00Z",
+    "service": "Label printing",
+    "asset": "AW-LP-02",
+    "location": "Harbor shipping",
+    "error": "Connection lost",
+    "scope": "Operational area",
+    "observations": [
+      "Requester reported the displayed error; technician verification pending."
+    ],
+    "actions_performed": [],
+    "outcome": "Unresolved in synthetic history"
+  },
+  {
+    "id": "LAB-009",
+    "synthetic": true,
+    "reported_at": "2026-09-12T09:00:00Z",
+    "service": "Label printing",
+    "asset": "AW-LP-02",
+    "location": "Harbor shipping",
+    "error": "Offline",
+    "scope": "One user",
+    "observations": [
+      "Requester reported the displayed error; technician verification pending."
+    ],
+    "actions_performed": [],
+    "outcome": "Unresolved in synthetic history"
+  },
+  {
+    "id": "LAB-010",
+    "synthetic": true,
+    "reported_at": "2026-09-13T09:00:00Z",
+    "service": "Label printing",
+    "asset": "AW-LP-02",
+    "location": "Harbor shipping",
+    "error": "Media error",
+    "scope": "Team",
+    "observations": [
+      "Requester reported the displayed error; technician verification pending."
+    ],
+    "actions_performed": [],
+    "outcome": "Unresolved in synthetic history"
+  },
+  {
+    "id": "LAB-001",
+    "synthetic": true,
+    "reported_at": "2026-09-14T09:00:00Z",
+    "service": "Label printing",
+    "asset": "AW-LP-01",
+    "location": "Harbor office",
+    "error": "Offline",
+    "scope": "One user",
+    "observations": [
+      "Requester reported the displayed error; technician verification pending."
+    ],
+    "actions_performed": [],
+    "outcome": "Unresolved in synthetic history"
+  }
+]

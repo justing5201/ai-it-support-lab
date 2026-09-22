@@ -101,7 +101,7 @@ TEST_CASES = [
     {
         "name": "webcam",
         "query": (
-            "My webcam flickers during Teams meetings."
+            "The lab balance fails calibration."
         ),
         "supported": False,
         "expected_source": None,
@@ -125,8 +125,7 @@ TEST_CASES = [
     {
         "name": "teams_microphone",
         "query": (
-            "Nobody can hear me in Microsoft Teams "
-            "but I can hear everyone else."
+            "The chemical mixer temperature sensor is faulty."
         ),
         "supported": False,
         "expected_source": None,
