@@ -37,7 +37,7 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
-Install and start [Ollama](https://ollama.com/), then download the two models and build the procedure index:
+Install and start [Ollama](https://ollama.com/). `embeddinggemma` builds the SOP search index and embeds incoming tickets; `llama3` analyzes the retrieved procedure and ticket. Download both models and build the index:
 
 ```powershell
 ollama pull embeddinggemma
@@ -52,6 +52,18 @@ streamlit run dashboard.py
 ```
 
 Choose **Mock Inbox** and click **Process Inbox** to try the fictional examples. If you edit a procedure in `knowledge_base/`, rebuild the index with `python -m rag.ingest_sops`.
+
+For a covered command-line example in PowerShell:
+
+```powershell
+@"
+mara@alder.example.invalid
+Office label printer
+Only my workstation AW-PC-14 cannot print labels to AW-LP-01 at Harbor office. Other users can print. Display says offline.
+"@ | python app.py
+```
+
+Look for `Analysis status: analyzed`, a relevant SOP, and a structured result. `Analysis status: review` with an error reason is a fallback, not a successful model analysis. A successful analysis may still require human review. The older Teams camera sample has no dedicated camera procedure; use the covered label-printer example for this check.
 
 You can also try the command-line version with `python app.py` or create the [sample recurring-issue report](docs/sample-vendor-report.md) with `python history_report.py`.
 
