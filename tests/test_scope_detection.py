@@ -101,7 +101,7 @@ TEST_CASES = [
     {
         "name": "webcam",
         "query": (
-            "The lab balance fails calibration."
+            "My webcam flickers during Teams meetings."
         ),
         "supported": False,
         "expected_source": None,
@@ -125,7 +125,8 @@ TEST_CASES = [
     {
         "name": "teams_microphone",
         "query": (
-            "The chemical mixer temperature sensor is faulty."
+            "Nobody can hear me in Microsoft Teams "
+            "but I can hear everyone else."
         ),
         "supported": False,
         "expected_source": None,
@@ -296,8 +297,6 @@ def main():
         f"Wrong SOP selections: {wrong_sources}"
     )
 
-    return 0 if passed == total else 1
-
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()

@@ -2,8 +2,6 @@
 
 ## Purpose
 
-Fictional Alder Works training procedure; not an employer policy.
-
 Use this procedure when a user reports an unexpected or suspicious email, message, link, attachment, sign-in request, or request for sensitive information.
 
 The purpose of Tier 1 handling is to reduce additional interaction with the message, collect relevant information, determine whether the user interacted with it, and route potential security incidents for appropriate review.

@@ -2,8 +2,6 @@
 
 ## Purpose
 
-Fictional Alder Works training procedure; not an employer policy.
-
 Use this procedure when a user reports:
 
 - a forgotten organizational password;
