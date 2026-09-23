@@ -1,4 +1,4 @@
-from ai_analyzer import analyze_ticket, fallback
+from ai_analyzer import analyze_ticket, fallback, SelectionValidationError
 from policy import apply_policy
 
 def create_ticket(sender, subject, body):
@@ -15,6 +15,8 @@ def process_ticket(ticket):
             analysis = fallback("Ticket exceeds lab input limit; review original message.")
         else:
             analysis = analyze_ticket(build_ticket_text(ticket))
+    except SelectionValidationError as error:
+        analysis = fallback(f"Model selection rejected: {error}")
     except Exception as error:
         # Avoid exposing tokens, raw messages or backend exception details in the UI.
         analysis = fallback(f"Analysis failed ({type(error).__name__}); check local model and SOP index.")

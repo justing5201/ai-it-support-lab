@@ -7,7 +7,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from ai_analyzer import validate_selection
+from ai_analyzer import validate_selection, selection_schema, TICKET_SCHEMA
+from app import main as run_app
 from ticket_processor import create_ticket, process_ticket
 from rag import ingest_sops, retriever
 from workflow import procedure_options
@@ -28,6 +29,35 @@ class PipelineTests(unittest.TestCase):
 
     def process(self, body='Only my workstation cannot print labels. Other users can print.', subject='Label printer'):
         return process_ticket(create_ticket('mara@alder.example.invalid', subject, body))['analysis']
+
+    def test_prompt_and_schema_use_explicit_matching_ids(self):
+        self.process()
+        request = self.client.return_value.chat.call_args.kwargs
+        payload = json.loads(request['messages'][1]['content'])
+        options = procedure_options((ROOT/'knowledge_base/label_printer.md').read_text())
+        for field, group in [('user_ids', 'user'), ('technician_ids', 'technician'),
+                             ('question_ids', 'questions')]:
+            self.assertEqual(payload['procedure_options'][group],
+                             [{'id': i, 'text': text} for i, text in enumerate(options[group])])
+            self.assertEqual(request['format']['properties'][field]['items']['enum'],
+                             list(range(len(options[group]))))
+
+    def test_invalid_id_diagnostic_and_no_partial_actions(self):
+        self.client.return_value.chat.return_value = {'message': {'content': json.dumps(
+            dict(SELECTION, user_ids=[0, 4]))}}
+        result = self.process()
+        self.assertEqual(result['analysis_status'], 'review')
+        self.assertTrue(result['requires_human_review'])
+        self.assertEqual(result['user_steps'], [])
+        self.assertEqual(result['technician_actions'], [])
+        self.assertIn('user_ids: received [0, 4]; allowed IDs [0, 1, 2, 3]', result['reason'])
+
+    def test_diagnostic_does_not_echo_model_text(self):
+        self.client.return_value.chat.return_value = {'message': {'content': json.dumps(
+            dict(SELECTION, user_ids=['SECRET_MODEL_TEXT']))}}
+        result = self.process()
+        self.assertIn('user_ids', result['reason'])
+        self.assertNotIn('SECRET_MODEL_TEXT', result['reason'])
 
     def test_single_user_vs_operational_outage(self):
         single = self.process()
@@ -130,6 +160,53 @@ class PipelineTests(unittest.TestCase):
         self.retrieval.assert_not_called()
 
 class InfrastructureTests(unittest.TestCase):
+    def test_selection_boundaries_and_empty_groups(self):
+        options = {'user': ['First', 'Last'], 'technician': [], 'questions': ['Question']}
+        valid = dict(SELECTION, user_ids=[0, 1], technician_ids=[], question_ids=[0])
+        self.assertEqual(validate_selection(valid, options), valid)
+        for field, ids in [('user_ids', [-1]), ('user_ids', [2]), ('user_ids', [True]),
+                           ('user_ids', [0, 0]), ('user_ids', ['0']),
+                           ('technician_ids', [0]), ('question_ids', [1])]:
+            with self.subTest(field=field, ids=ids), self.assertRaises(ValueError):
+                validate_selection(dict(valid, **{field: ids}), options)
+
+    def test_schema_empty_group_and_no_shared_mutation(self):
+        original = copy.deepcopy(TICKET_SCHEMA)
+        schema = selection_schema({'user': ['First'], 'technician': [], 'questions': []})
+        self.assertEqual(schema['properties']['technician_ids']['maxItems'], 0)
+        self.assertNotIn('enum', schema['properties']['technician_ids']['items'])
+        self.assertEqual(TICKET_SCHEMA, original)
+
+    def test_cli_with_real_index_and_simulated_ollama(self):
+        # Real ingestion, retrieval, validation, policy and app printing; only Ollama is simulated.
+        with tempfile.TemporaryDirectory() as temp:
+            kb = Path(temp)/'knowledge_base'
+            kb.mkdir()
+            (kb/'label_printer.md').write_text((ROOT/'knowledge_base/label_printer.md').read_text())
+            index = Path(temp)/'index.json'
+            with patch.object(ingest_sops, 'KNOWLEDGE_BASE', kb), \
+                 patch.object(ingest_sops, 'OUTPUT_FILE', index), \
+                 patch.object(retriever, 'INDEX_FILE', index), \
+                 patch('ollama.Client') as client:
+                client.return_value.embed.return_value = {'embeddings': [[1., 0.]]}
+                with redirect_stdout(io.StringIO()):
+                    ingest_sops.build_index()
+                for ids, status in [([0], 'analyzed'), ([4], 'review')]:
+                    client.return_value.chat.return_value = {'message': {'content': json.dumps(
+                        dict(SELECTION, user_ids=ids))}}
+                    output = io.StringIO()
+                    with patch('builtins.input', side_effect=['mara@alder.example.invalid',
+                               'Office label printer', 'Only my workstation cannot print labels. Other users can print.']), \
+                         redirect_stdout(output):
+                        run_app()
+                    self.assertIn(f'Analysis status: {status}', output.getvalue())
+                    if status == 'analyzed':
+                        self.assertIn('label_printer.md', output.getvalue())
+                        self.assertIn('Confirm the selected printer name', output.getvalue())
+                    else:
+                        self.assertIn('Model selection rejected', output.getvalue())
+                        self.assertNotIn('Confirm the selected printer name', output.getvalue())
+
     def test_fresh_index_has_sections(self):
         with tempfile.TemporaryDirectory() as temp, patch.object(ingest_sops, 'OUTPUT_FILE', Path(temp)/'index.json'), patch.object(ingest_sops.ollama.Client, 'embed', return_value={'embeddings': [[1., 0.]]}):
             with redirect_stdout(io.StringIO()):

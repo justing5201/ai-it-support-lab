@@ -21,6 +21,7 @@ def main():
         analysis = result["analysis"]
 
         print("\nTICKET ANALYSIS")
+        print(f"Analysis status: {analysis['analysis_status']}")
         print("=" * 50)
 
         print(
